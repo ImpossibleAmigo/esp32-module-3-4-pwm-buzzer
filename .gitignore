@@ -1,5 +1,5 @@
 .pio/
 .vscode/
 *.bin
-*.elfsdkconfig.*
+*.elf
 sdkconfig.*
