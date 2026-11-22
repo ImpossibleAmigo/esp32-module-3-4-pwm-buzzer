@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -15,6 +16,7 @@
 
 #define PLAYER_TICK_MS    50
 #define PLAYER_TICK_US    (PLAYER_TICK_MS * 1000ULL)
+#define HEARTBEAT_US      (1000ULL * 1000ULL)
 
 // Частоти нот (Гц)
 #define NOTE_REST  0
@@ -44,6 +46,7 @@ static const char *TAG = "PWM_BUZZER";
 static size_t current_note = 0;
 static uint16_t ticks_left = 0;
 static bool is_playing = true;
+static uint32_t heartbeat_sec = 0;
 
 static void buzzer_pwm_init(void) {
     ledc_timer_config_t timer_cfg = {
@@ -99,6 +102,13 @@ static void audio_player_tick_cb(void *arg) {
     }
 }
 
+static void heartbeat_cb(void *arg) {
+    (void)arg;
+    heartbeat_sec++;
+    ESP_LOGI(TAG, "System active (non-blocking) | sec: %" PRIu32 " | note index: %u",
+             heartbeat_sec, (unsigned)current_note);
+}
+
 void app_main(void) {
     buzzer_pwm_init();
 
@@ -107,10 +117,18 @@ void app_main(void) {
         .arg      = NULL,
         .name     = "audio_player_tick",
     };
-
     esp_timer_handle_t player_timer = NULL;
     ESP_ERROR_CHECK(esp_timer_create(&player_timer_args, &player_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(player_timer, PLAYER_TICK_US));
+
+    const esp_timer_create_args_t hb_timer_args = {
+        .callback = &heartbeat_cb,
+        .arg      = NULL,
+        .name     = "heartbeat_1s",
+    };
+    esp_timer_handle_t hb_timer = NULL;
+    ESP_ERROR_CHECK(esp_timer_create(&hb_timer_args, &hb_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(hb_timer, HEARTBEAT_US));
 
     ESP_LOGI(TAG, "Non-blocking PWM player started on GPIO %d (tick %d ms)",
              BUZZER_GPIO, PLAYER_TICK_MS);
